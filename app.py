@@ -1,133 +1,180 @@
 import streamlit as st
-from google import genai
-from google.genai import types
+import pandas as pd
+from io import StringIO
 
-# 페이지 설정
 st.set_page_config(
-    page_title="연애상담 챗봇",
-    page_icon="💌",
+    page_title="취향 탐험가",
+    page_icon="🎯",
+    layout="centered"
 )
 
-st.title("💌 연애상담 챗봇")
-st.caption("Gemini 2.5 Flash Lite 기반 상담 챗봇")
+st.title("🎯 취향 탐험가")
+st.markdown("간단한 질문에 답하고 당신의 취향 유형을 알아보세요!")
 
-# API 키 불러오기
-try:
-    api_key = st.secrets["GEMINI_API_KEY"]
-except Exception:
-    st.error("Secrets에 GEMINI_API_KEY를 등록해주세요.")
-    st.stop()
+st.divider()
 
-# Gemini 클라이언트 생성
-try:
-    client = genai.Client(api_key=api_key)
-except Exception as e:
-    st.error(f"Gemini 클라이언트 생성 실패: {e}")
-    st.stop()
+with st.form("preference_form"):
 
-# 시스템 프롬프트
-SYSTEM_PROMPT = """
-너는 따뜻하고 공감 능력이 뛰어난 연애상담 챗봇이다.
+    food = st.radio(
+        "🍕 어떤 음식을 더 좋아하나요?",
+        ["한식", "양식", "둘 다 비슷"]
+    )
 
-규칙:
-- 사용자의 감정을 존중한다.
-- 비난하거나 공격적으로 말하지 않는다.
-- 현실적이고 도움이 되는 조언을 제공한다.
-- 짧고 읽기 쉽게 답변한다.
-- 필요하면 위로와 공감을 먼저 한다.
+    travel = st.radio(
+        "✈️ 여행을 간다면?",
+        ["관광 명소", "자연 휴양", "맛집 탐방"]
+    )
+
+    weekend = st.radio(
+        "🏠 주말에 가장 하고 싶은 것은?",
+        ["집에서 휴식", "외출", "새로운 경험"]
+    )
+
+    planning = st.radio(
+        "📅 당신은?",
+        ["계획형", "즉흥형", "상황에 따라"]
+    )
+
+    social = st.radio(
+        "👥 사람들과의 관계는?",
+        ["소수와 깊게", "많이 사귀기", "둘 다"]
+    )
+
+    spending = st.radio(
+        "💰 소비 스타일은?",
+        ["절약형", "가치 소비형", "경험 우선형"]
+    )
+
+    submit = st.form_submit_button("결과 보기")
+
+if submit:
+
+    explorer_score = 0
+    comfort_score = 0
+
+    # 여행
+    if travel == "맛집 탐방":
+        explorer_score += 2
+    elif travel == "관광 명소":
+        explorer_score += 1
+    else:
+        comfort_score += 2
+
+    # 주말
+    if weekend == "새로운 경험":
+        explorer_score += 2
+    elif weekend == "외출":
+        explorer_score += 1
+    else:
+        comfort_score += 2
+
+    # 계획성
+    if planning == "즉흥형":
+        explorer_score += 2
+    elif planning == "계획형":
+        comfort_score += 2
+
+    # 소비
+    if spending == "경험 우선형":
+        explorer_score += 2
+    elif spending == "절약형":
+        comfort_score += 2
+
+    st.divider()
+
+    st.subheader("📊 분석 결과")
+
+    if explorer_score >= comfort_score + 2:
+        result_type = "모험가형"
+        description = """
+새로운 경험을 좋아하고 다양한 활동에 적극적입니다.
+여행, 체험, 도전을 즐기는 성향이 강합니다.
 """
+        recommendations = [
+            "혼자 여행 도전",
+            "새로운 취미 시작",
+            "체험 클래스 참여",
+            "즉흥 드라이브"
+        ]
 
-# 세션 상태 초기화
-if "messages" not in st.session_state:
-    st.session_state.messages = []
+    elif comfort_score >= explorer_score + 2:
+        result_type = "안정추구형"
+        description = """
+편안함과 익숙함을 선호합니다.
+신중하게 선택하고 안정적인 환경에서 만족감을 느낍니다.
+"""
+        recommendations = [
+            "독서",
+            "카페 투어",
+            "산책",
+            "집콕 취미"
+        ]
 
-# 이전 대화 출력
-for message in st.session_state.messages:
-    with st.chat_message(message["role"]):
-        st.markdown(message["content"])
+    else:
+        result_type = "균형형"
+        description = """
+새로운 경험과 안정감을 균형 있게 추구합니다.
+상황에 따라 유연하게 행동하는 편입니다.
+"""
+        recommendations = [
+            "주말 근교 여행",
+            "가벼운 운동",
+            "문화생활",
+            "맛집 탐방"
+        ]
 
-# 사용자 입력
-user_input = st.chat_input("연애 고민을 이야기해보세요...")
+    st.success(f"당신의 취향 유형은 **{result_type}** 입니다!")
 
-if user_input:
-    # 사용자 메시지 저장
-    st.session_state.messages.append({
-        "role": "user",
-        "content": user_input
+    st.write(description)
+
+    st.subheader("⭐ 추천 활동")
+
+    for item in recommendations:
+        st.write(f"• {item}")
+
+    st.subheader("📈 점수")
+
+    score_df = pd.DataFrame({
+        "항목": ["모험 성향", "안정 성향"],
+        "점수": [explorer_score, comfort_score]
     })
 
-    # 사용자 메시지 출력
-    with st.chat_message("user"):
-        st.markdown(user_input)
+    st.bar_chart(
+        score_df.set_index("항목")
+    )
 
-    # AI 응답 생성
-    with st.chat_message("assistant"):
-        message_placeholder = st.empty()
+    st.subheader("📥 결과 다운로드")
 
-        try:
-            # 대화 기록 문자열 생성
-            history_text = ""
+    result_df = pd.DataFrame({
+        "항목": [
+            "음식 취향",
+            "여행 취향",
+            "주말 스타일",
+            "계획 성향",
+            "관계 스타일",
+            "소비 스타일",
+            "최종 유형"
+        ],
+        "결과": [
+            food,
+            travel,
+            weekend,
+            planning,
+            social,
+            spending,
+            result_type
+        ]
+    })
 
-            for msg in st.session_state.messages:
-                role = "사용자" if msg["role"] == "user" else "상담사"
-                history_text += f"{role}: {msg['content']}\n"
+    csv = result_df.to_csv(index=False)
 
-            prompt = f"""
-{SYSTEM_PROMPT}
+    st.download_button(
+        label="CSV 다운로드",
+        data=csv,
+        file_name="preference_result.csv",
+        mime="text/csv"
+    )
 
-다음은 지금까지의 대화 내용이다.
+st.divider()
 
-{history_text}
-
-상담사 답변:
-"""
-
-            response = client.models.generate_content(
-                model="gemini-2.5-flash-lite",
-                contents=prompt,
-                config=types.GenerateContentConfig(
-                    temperature=0.8,
-                    max_output_tokens=500,
-                )
-            )
-
-            ai_response = response.text
-
-            # 응답 출력
-            message_placeholder.markdown(ai_response)
-
-            # 대화 저장
-            st.session_state.messages.append({
-                "role": "assistant",
-                "content": ai_response
-            })
-
-        except Exception as e:
-            error_message = f"오류가 발생했어요 😢\n\n{str(e)}"
-
-            message_placeholder.error(error_message)
-
-            st.session_state.messages.append({
-                "role": "assistant",
-                "content": error_message
-            })
-
-# 사이드바
-with st.sidebar:
-    st.header("⚙️ 설정")
-
-    if st.button("대화 초기화"):
-        st.session_state.messages = []
-        st.rerun()
-
-    st.markdown("---")
-    st.markdown("""
-### 📌 사용 모델
-- gemini-2.5-flash-lite
-
-### 💡 예시 질문
-- 썸남이 연락이 줄었어요
-- 헤어진 전애인이 생각나요
-- 고백해도 될까요?
-- 장거리 연애가 힘들어요
-""")
+st.caption("취향 탐험가 v1.0")
